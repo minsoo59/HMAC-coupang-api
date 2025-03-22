@@ -1,39 +1,33 @@
 import express from 'express';
 import https from 'https';
 import crypto from 'crypto';
-import bodyParser from 'body-parser';
+import querystring from 'querystring';
+import dotenv from 'dotenv';
 
+dotenv.config();
 const app = express();
-app.use(bodyParser.json());
+app.use(express.json());
 
 app.post('/orders', async (req, res) => {
   try {
-    // 1. 요청에서 인증 관련 정보 추출
     const { accessKey, secretKey, vendorId, path } = req.body;
+    const queryObj = req.query; // 쿼리 파라미터를 그대로 받음
 
-    // 2. 쿼리 스트링에서 createdAtFrom, createdAtTo, status 추출
-    const { createdAtFrom, createdAtTo, status } = req.query;
-
-    if (!createdAtFrom || !createdAtTo || !status) {
-      return res.status(400).json({ error: 'Missing required query parameters' });
-    }
-
-    // 3. 날짜 등 쿼리 조합
-    const query = `?createdAtFrom=${createdAtFrom}&createdAtTo=${createdAtTo}&status=${status}`;
-
-    // 4. HMAC Signature 생성
+    const query = `?${querystring.stringify(queryObj)}`;
     const now = new Date().toISOString();
     const method = 'GET';
     const message = `${now}${method}${path}${query}`;
-    const signature = crypto.createHmac('sha256', secretKey).update(message).digest('hex');
+
+    const signature = crypto.createHmac('sha256', secretKey)
+      .update(message)
+      .digest('hex');
 
     const authorization = `CEA algorithm=HmacSHA256, access-key=${accessKey}, signed-date=${now}, signature=${signature}`;
 
-    // 5. Coupang API로 요청
     const options = {
       hostname: 'api-gateway.coupang.com',
       path: `${path}${query}`,
-      method: method,
+      method,
       headers: {
         Authorization: authorization,
         'Content-Type': 'application/json',
