@@ -21,15 +21,8 @@ app.post('/orders', async (req, res) => {
     }
 
     // 3. 쿼리 문자열 생성
-    const queryObj = {
-      createdAtFrom,
-      createdAtTo,
-      status,
-      ...(searchType && { searchType }),
-      ...(maxPerPage && { maxPerPage }),
-      ...(nextToken && { nextToken })
-    };
-    const query = '?' + querystring.stringify(queryObj);
+    const queryObj = req.query;
+    const query = '?' + querystring.stringify(queryObj); // 쿼리 문자열 생성
 
     // 4. HMAC Signature 생성
     const now = new Date().toISOString();
