@@ -1,6 +1,7 @@
 import express from 'express';
 import https from 'https';
 import crypto from 'crypto';
+import querystring from 'querystring';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -11,13 +12,13 @@ app.post('/orders', async (req, res) => {
   try {
     const { accessKey, secretKey, vendorId, path, query } = req.body;
 
-    if (!accessKey || !secretKey || !vendorId || !path || !query) {
-      return res.status(400).json({ error: 'Missing required parameters in body' });
-    }
+    // ✅ 쿼리 스트링 파싱
+    const queryObj = querystring.parse(query.replace(/^\?/, ''));
 
+    const queryStr = `?${querystring.stringify(queryObj)}`;
     const now = new Date().toISOString();
     const method = 'GET';
-    const message = `${now}${method}${path}${query}`;
+    const message = `${now}${method}${path}${queryStr}`;
 
     const signature = crypto.createHmac('sha256', secretKey)
       .update(message)
@@ -27,7 +28,7 @@ app.post('/orders', async (req, res) => {
 
     const options = {
       hostname: 'api-gateway.coupang.com',
-      path: `${path}${query}`,
+      path: `${path}${queryStr}`,
       method,
       headers: {
         Authorization: authorization,
@@ -37,9 +38,7 @@ app.post('/orders', async (req, res) => {
 
     const coupangReq = https.request(options, (coupangRes) => {
       let data = '';
-      coupangRes.on('data', (chunk) => {
-        data += chunk;
-      });
+      coupangRes.on('data', (chunk) => (data += chunk));
       coupangRes.on('end', () => {
         try {
           const parsed = JSON.parse(data);
@@ -51,7 +50,7 @@ app.post('/orders', async (req, res) => {
     });
 
     coupangReq.on('error', (e) => {
-      res.status(500).json({ error: 'Coupang request error', detail: e.message });
+      res.status(500).json({ error: e.message });
     });
 
     coupangReq.end();
