@@ -1,7 +1,6 @@
 import express from 'express';
 import https from 'https';
 import crypto from 'crypto';
-import querystring from 'querystring';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -10,25 +9,19 @@ app.use(express.json());
 
 app.post('/orders', async (req, res) => {
   try {
-    const { accessKey, secretKey, vendorId, path } = req.body;
+    const { accessKey, secretKey, vendorId, path, query } = req.body;
 
-    // 1. 쿼리 스트링 받아오기
-    const { createdAtFrom, createdAtTo, status, searchType, maxPerPage, nextToken } = req.query;
-
-    // 2. 필수 쿼리값 확인
-    if (!createdAtFrom || !createdAtTo || !status) {
-      return res.status(400).json({ error: 'createdAtFrom, createdAtTo, status are required.' });
+    if (!accessKey || !secretKey || !vendorId || !path || !query) {
+      return res.status(400).json({ error: 'Missing required parameters in body' });
     }
 
-    // 3. 쿼리 문자열 생성
-    const queryObj = req.query;
-    const query = `?${querystring.stringify(queryObj)}`; // 쿼리 문자열 생성
-
-    // 4. HMAC Signature 생성
     const now = new Date().toISOString();
     const method = 'GET';
     const message = `${now}${method}${path}${query}`;
-    const signature = crypto.createHmac('sha256', secretKey).update(message).digest('hex');
+
+    const signature = crypto.createHmac('sha256', secretKey)
+      .update(message)
+      .digest('hex');
 
     const authorization = `CEA algorithm=HmacSHA256, access-key=${accessKey}, signed-date=${now}, signature=${signature}`;
 
@@ -44,7 +37,9 @@ app.post('/orders', async (req, res) => {
 
     const coupangReq = https.request(options, (coupangRes) => {
       let data = '';
-      coupangRes.on('data', (chunk) => (data += chunk));
+      coupangRes.on('data', (chunk) => {
+        data += chunk;
+      });
       coupangRes.on('end', () => {
         try {
           const parsed = JSON.parse(data);
@@ -56,7 +51,7 @@ app.post('/orders', async (req, res) => {
     });
 
     coupangReq.on('error', (e) => {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: 'Coupang request error', detail: e.message });
     });
 
     coupangReq.end();
