@@ -1,6 +1,7 @@
 import express from 'express';
 import https from 'https';
 import crypto from 'crypto';
+import querystring from 'querystring';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -9,11 +10,11 @@ app.use(express.json());
 
 app.post('/orders', async (req, res) => {
   try {
-    const { accessKey, secretKey, vendorId, path } = req.body;
+    const { accessKey, secretKey, vendorId, path, query } = req.body;
 
-    // ✅ 쿼리 스트링 조립 (Make에서 쿼리를 QueryString으로 넘겼을 경우)
-    const queryStr = `?${new URLSearchParams(req.query).toString()}`;
-
+    // ✅ 쿼리 스트링 파싱
+    const queryObj = querystring.parse(query.replace(/^\?/, ''));
+    const queryStr = `?${querystring.stringify(queryObj)}`;
     const now = new Date().toISOString();
     const method = 'GET';
     const message = `${now}${method}${path}${queryStr}`;
